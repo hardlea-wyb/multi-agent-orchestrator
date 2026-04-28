@@ -1,0 +1,16 @@
+project: "multi-agent-orchestrator"
+maxConcurrency: 2
+retry:
+  attempts: 2
+  backoffMs: 400
+agents:
+  - id: "analyst"
+    name: "Requirements Analyst"
+    goal: "Break down the request into deliverables"
+    tools: ["summarize", "checklist"]
+    priority: 1
+  - id: "engineer"
+    name: "Orchestration Engineer"
+    goal: "Design execution flow and recovery"
+    tools: ["summarize"]
+    priority: 2
