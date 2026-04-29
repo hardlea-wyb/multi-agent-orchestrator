@@ -1,0 +1,7 @@
+{
+  "apiKey": "your_key",
+  "baseUrl": "https://api.longcat.chat/openai",
+  "model": "LongCat-Flash-Thinking-2601",
+  "temperature": 0.7,
+  "timeoutMs": 8000
+}

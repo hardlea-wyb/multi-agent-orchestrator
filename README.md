@@ -1,38 +1,70 @@
 # Multi-Agent Orchestrator
 
-A pragmatic multi-agent orchestration framework for building collaborative agent workflows with clear roles, tool access, and execution tracing.
+一个务实的多 Agent 编排框架，用于构建协作式 Agent 工作流，具备明确角色、工具权限与执行追踪能力。
 
-## Why
-- Build agent workflows that are predictable, inspectable, and easy to extend.
-- Keep agent roles explicit and enforce tool boundaries per role.
-- Provide execution traces for audits and troubleshooting.
+## 为什么要用
+- 构建可预测、可检查、易扩展的 Agent 工作流
+- 角色与工具权限清晰，便于治理与审计
+- 输出执行轨迹，方便排错与复盘
 
-## Features
-- Agent roles defined via YAML/JSON
-- Task dispatcher with concurrency and retries
-- Tool registry with guardrails
-- Execution trace summary for observability
+## 功能特性
+- 通过 YAML/JSON 定义 Agent 角色与能力
+- 任务调度支持并发与失败重试
+- 工具注册与访问控制
+- 执行追踪与摘要
+- 内置 HTTP 请求工具，方便对接真实服务
+- 内置文件检索工具，便于本地代码发现
+- 内置 LLM 工具（OpenAI 兼容接口）
 
-## Quick start
+## 快速开始
 ```bash
 npm install
 npm run dev
 ```
 
-By default this runs the sample config in `examples/agent-config.yaml`.
+默认运行示例配置 `examples/agent-config.yaml`。
 
-## Project structure
+示例任务包含 `payload.url` 用于演示 HTTP 工具。
+文件检索工具读取 `payload.root`、`payload.query` 及可选过滤条件。
+
+## 接入真实 LLM（本地配置文件）
+优先读取 `.llmrc.json`，其次读取 `config/llm.local.json`，最后兜底环境变量。
+
+使用 OpenAI 兼容接口，创建本地配置文件（已在 `.gitignore` 中忽略）。
+
+示例：
+```json
+{
+  "apiKey": "your_key",
+  "baseUrl": "https://api.longcat.chat/openai",
+  "model": "LongCat-Flash-Thinking-2601",
+  "temperature": 0.7,
+  "timeoutMs": 8000
+}
+```
+
+也可使用 `config/llm.local.json`，格式相同。
+对应工具为 `llm_generate`，已在示例配置中启用。
+
+步骤：
+1. 复制模板：`copy .llmrc.example.json .llmrc.json` 或创建 `config/llm.local.json`
+2. 填入 `apiKey/baseUrl/model`
+3. 运行：`npm run dev`
+
+注意：配置文件包含密钥，请勿提交到仓库。
+
+## 目录结构
 ```
 src/
-  agents/           # Agent implementations
-  core/             # Dispatching, config, tracing
-  tools/            # Tool registry and built-ins
-  cli.ts            # CLI entry
-examples/           # Sample configs and tasks
-docs/               # Architecture notes
+  agents/           # Agent 实现
+  core/             # 调度、配置、追踪
+  tools/            # 工具注册与内置工具
+  cli.ts            # CLI 入口
+examples/           # 示例配置与任务
+docs/               # 架构说明
 ```
 
-## Example output
+## 示例输出
 ```text
 [analyst] Agent Requirements Analyst completed task: Analyze requirements for a new agent workflow
 Goal: Break down the request into deliverables
@@ -40,9 +72,9 @@ Tools used: [summarize] Summary: Analyze requirements for a new agent workflow |
 ```
 
 ## Roadmap
-- Plugin system for custom agents and tools
-- Remote execution workers
-- Web UI for trace exploration
+- 插件系统（自定义 Agent/Tool）
+- 远程执行 Worker
+- 执行轨迹可视化 UI
 
 ## License
 MIT

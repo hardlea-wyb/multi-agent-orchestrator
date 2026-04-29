@@ -11,6 +11,11 @@ const tasks: TaskInput[] = [
     payload: {
       topic: 'Multi-agent orchestration',
       priority: 'high',
+      url: 'https://example.com',
+      root: '.',
+      query: 'orchestrator',
+      extensions: ['.ts', '.md'],
+      prompt: '请基于当前任务给出简短建议。',
     },
   },
   {

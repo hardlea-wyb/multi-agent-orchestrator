@@ -1,5 +1,7 @@
 node_modules
 dist
 .env
+.llmrc.json
+config/llm.local.json
 .DS_Store
 *.log
