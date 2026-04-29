@@ -170,11 +170,17 @@ export function registerBuiltinTools(registry: ToolRegistry) {
     description: 'Generate a response using the configured LLM.',
     handler: async (input) => {
       const task = input.task as { summary?: string; payload?: Record<string, unknown> };
+      const context = (input as { context?: { outputs?: Array<{ toolId: string; output: string }> } })
+        .context;
+      const priorOutputs = Array.isArray(context?.outputs)
+        ? context.outputs.map((item) => `${item.toolId}: ${item.output}`).join('\n')
+        : '';
       const userPrompt =
         typeof task?.payload?.prompt === 'string' ? task.payload.prompt : undefined;
       const prompt = [
         `Task: ${task?.summary ?? 'task'}`,
         `Payload: ${JSON.stringify(task?.payload ?? {})}`,
+        priorOutputs ? `Context:\n${priorOutputs}` : null,
         userPrompt ? `UserPrompt: ${userPrompt}` : null,
         'Return a concise response in Chinese.',
       ]
@@ -212,12 +218,16 @@ export function registerBuiltinTools(registry: ToolRegistry) {
         return `web_search: no results for ${query}`;
       }
 
-      return results
-        .map((result, index) => {
-          const snippet = result.snippet ? ` - ${result.snippet}` : '';
-          return `${index + 1}. ${result.title} (${result.url})${snippet}`;
-        })
-        .join(' | ');
+      const formatted = results.map((result, index) => {
+        const snippet = result.snippet ? ` - ${result.snippet}` : '';
+        return `${index + 1}. ${result.title} (${result.url})${snippet}`;
+      });
+
+      if (typeof payload.url !== 'string' && results[0]?.url) {
+        payload.url = results[0].url;
+      }
+
+      return formatted.join(' | ');
     },
   });
 }

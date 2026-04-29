@@ -44,6 +44,11 @@ npm run search -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" 
 npm run flow -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
 ```
 
+研发辅助工作流（需求分析 -> 模块定位 -> 方案建议）：
+```bash
+npm run flow -- "新增用户导出功能" --root "D:\\repo" --pipeline devassist --prompt "需求分析->模块定位->方案建议"
+```
+
 自然语言对话模式（自动抽取主题并触发 web_search）：
 ```bash
 npm run chat -- "我想搜索相关DIT的内容"

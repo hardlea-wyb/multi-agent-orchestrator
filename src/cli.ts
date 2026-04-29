@@ -179,12 +179,14 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
   const url = overrides.url;
   const extensions = overrides.extensions ?? ['.md', '.txt', '.ts'];
   const userPrompt = overrides.prompt?.trim();
+  const issue = overrides.summary ?? safeTopic;
   const sharedPayload: Record<string, unknown> = {
     topic: overrides.topic ?? safeTopic,
     priority: overrides.priority ?? 'high',
     root,
     query: overrides.query ?? safeTopic,
     extensions,
+    issue,
   };
 
   if (overrides.searchProvider) {
@@ -204,6 +206,7 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
     triad: ['checklist', 'summarize', 'web_search', 'http_get', 'file_search'],
     quick: ['summarize', 'web_search', 'file_search'],
     deep: ['checklist', 'web_search', 'http_get', 'file_search', 'llm_generate'],
+    devassist: ['checklist', 'summarize', 'file_search', 'llm_generate'],
   };
 
   const toolIds = pipelineTools[pipeline] ?? pipelineTools.triad;
@@ -216,8 +219,8 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
         ...sharedPayload,
         toolIds: ['checklist', 'summarize'],
         prompt: userPrompt
-          ? `用户需求：${userPrompt}\n请梳理“${safeTopic}”的关键问题与信息需求。`
-          : `请梳理“${safeTopic}”的关键问题与信息需求。`,
+          ? `用户需求：${userPrompt}\n请梳理“${safeTopic}”的关键问题与信息需求，并明确要改动的模块。`
+          : `请梳理“${safeTopic}”的关键问题与信息需求，并明确要改动的模块。`,
       },
     },
     {
@@ -228,8 +231,8 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
         toolIds,
         url,
         prompt: userPrompt
-          ? `用户需求：${userPrompt}\n请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`
-          : `请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`,
+          ? `用户需求：${userPrompt}\n请结合本地代码检索结果定位相关模块，给出实现方案。`
+          : `请结合本地代码检索结果定位相关模块，给出实现方案。`,
       },
     },
     {
@@ -239,8 +242,8 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
         ...sharedPayload,
         toolIds: ['llm_generate', 'summarize'],
         prompt: userPrompt
-          ? `用户需求：${userPrompt}\n请给出“${safeTopic}”的最终答复与建议。`
-          : `请给出“${safeTopic}”的要点总结与下一步建议。`,
+          ? `用户需求：${userPrompt}\n请输出实现步骤、涉及文件与风险点。`
+          : `请输出实现步骤、涉及文件与风险点。`,
       },
     },
   ];
@@ -312,6 +315,7 @@ Options:
   --max-file-size-kb <number>
   --http-timeout-ms <number>
   --pipeline <triad|quick|deep>
+  --pipeline <triad|quick|deep|devassist>
   --search-provider <tavily|serpapi>
   --search-max-results <number>
   --search-timeout-ms <number>
@@ -321,6 +325,7 @@ Options:
 Example:
   npm run dev -- search "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --extensions ".md,.txt"
   npm run dev -- flow "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
+  npm run dev -- flow "新增用户导出功能" --root "D:\\repo" --pipeline devassist --prompt "需求分析->模块定位->方案建议"
   npm run dev -- chat "我想搜索相关DIT的内容"
   npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --query "vision transformer" --extensions ".md,.txt" --prompt "请总结核心思想"
 `);

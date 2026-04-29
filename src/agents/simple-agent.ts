@@ -12,6 +12,9 @@ export async function runSimpleAgent(
     ? (task.payload.toolIds as string[])
     : agent.tools;
   const toolOutputs: string[] = [];
+  const context = {
+    outputs: [] as Array<{ toolId: string; output: string }>,
+  };
 
   for (const toolId of toolIds) {
     const tool = tools.get(toolId);
@@ -25,8 +28,9 @@ export async function runSimpleAgent(
       });
       continue;
     }
-    const output = await tool.handler({ task });
+    const output = await tool.handler({ task, context });
     toolOutputs.push(`[${toolId}] ${output}`);
+    context.outputs.push({ toolId, output });
   }
 
   return {
