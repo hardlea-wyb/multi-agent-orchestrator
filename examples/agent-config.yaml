@@ -7,7 +7,7 @@ agents:
   - id: "analyst"
     name: "Requirements Analyst"
     goal: "Break down the request into deliverables"
-    tools: ["summarize", "checklist", "http_get", "file_search", "llm_generate"]
+    tools: ["summarize", "checklist", "http_get", "file_search", "llm_generate", "web_search"]
     priority: 1
   - id: "engineer"
     name: "Orchestration Engineer"

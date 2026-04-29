@@ -64,7 +64,7 @@ export async function llmGenerate(prompt: string, options: LlmOptions = {}) {
   const temperature =
     options.temperature ?? localConfig.temperature ?? Number(process.env.LLM_TEMPERATURE ?? 0.2);
   const timeoutMs =
-    options.timeoutMs ?? localConfig.timeoutMs ?? Number(process.env.LLM_TIMEOUT_MS ?? 8000);
+    options.timeoutMs ?? localConfig.timeoutMs ?? Number(process.env.LLM_TIMEOUT_MS ?? 30000);
 
   if (!apiKey) {
     throw new Error('LLM_API_KEY is missing');

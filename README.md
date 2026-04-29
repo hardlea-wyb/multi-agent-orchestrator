@@ -34,6 +34,44 @@ npm run dev
 npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --query "vision transformer" --extensions ".md,.txt" --prompt "请总结核心思想"
 ```
 
+更简单的短命令：
+```bash
+npm run search -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --extensions ".md,.txt"
+```
+
+三段式工作流（先理解需求 -> 执行检索 -> 总结输出）：
+```bash
+npm run flow -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
+```
+
+## 网页搜索（自动找链接）
+新增 `web_search` 工具，可自动找到网页链接并用于后续总结。
+
+1) 准备搜索配置（本地文件，已在 `.gitignore` 忽略）
+- `.searchrc.json` 或 `config/search.local.json`
+
+示例：
+```json
+{
+  "provider": "tavily",
+  "apiKey": "your_search_key",
+  "baseUrl": "https://api.tavily.com",
+  "maxResults": 5,
+  "timeoutMs": 30000
+}
+```
+
+2) 直接使用
+```bash
+npm run flow -- "Vision Transformer" --pipeline deep
+```
+
+可选参数：
+- `--search-provider` (`tavily`/`serpapi`)
+- `--search-max-results`
+- `--search-timeout-ms`
+- `--search-config`
+
 常用参数：
 - `--config` 配置文件路径
 - `--summary` 任务标题
@@ -60,7 +98,7 @@ npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url
   "baseUrl": "https://api.longcat.chat/openai",
   "model": "LongCat-Flash-Thinking-2601",
   "temperature": 0.7,
-  "timeoutMs": 8000
+  "timeoutMs": 30000
 }
 ```
 

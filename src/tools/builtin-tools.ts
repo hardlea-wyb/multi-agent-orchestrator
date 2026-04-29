@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ToolRegistry } from '../core/tool-registry.js';
 import { llmGenerate } from './llm-tool.js';
+import { webSearch } from './search-tool.js';
 
 export function registerBuiltinTools(registry: ToolRegistry) {
   registry.register({
@@ -181,6 +182,42 @@ export function registerBuiltinTools(registry: ToolRegistry) {
         .join('\n');
 
       return llmGenerate(prompt);
+    },
+  });
+
+  registry.register({
+    id: 'web_search',
+    description: 'Search the web using a configured provider and return top results.',
+    handler: async (input) => {
+      const task = input.task as { payload?: Record<string, unknown> };
+      const payload = task?.payload ?? {};
+      const query = typeof payload.query === 'string' ? payload.query : undefined;
+      if (!query) {
+        return 'web_search skipped: payload.query missing';
+      }
+
+      const provider = typeof payload.searchProvider === 'string' ? payload.searchProvider : undefined;
+      const maxResults = typeof payload.searchMaxResults === 'number' ? payload.searchMaxResults : undefined;
+      const timeoutMs = typeof payload.searchTimeoutMs === 'number' ? payload.searchTimeoutMs : undefined;
+      const configPath = typeof payload.searchConfigPath === 'string' ? payload.searchConfigPath : undefined;
+
+      const results = await webSearch(query, {
+        provider,
+        maxResults,
+        timeoutMs,
+        configPath,
+      });
+
+      if (results.length === 0) {
+        return `web_search: no results for ${query}`;
+      }
+
+      return results
+        .map((result, index) => {
+          const snippet = result.snippet ? ` - ${result.snippet}` : '';
+          return `${index + 1}. ${result.title} (${result.url})${snippet}`;
+        })
+        .join(' | ');
     },
   });
 }

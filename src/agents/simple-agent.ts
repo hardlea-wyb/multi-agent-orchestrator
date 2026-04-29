@@ -8,7 +8,9 @@ export async function runSimpleAgent(
   tools: ToolRegistry,
   trace: ExecutionTrace,
 ): Promise<TaskResult> {
-  const toolIds = agent.tools;
+  const toolIds = Array.isArray(task.payload?.toolIds)
+    ? (task.payload.toolIds as string[])
+    : agent.tools;
   const toolOutputs: string[] = [];
 
   for (const toolId of toolIds) {

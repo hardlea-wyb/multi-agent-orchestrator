@@ -1,0 +1,7 @@
+{
+  "provider": "tavily",
+  "apiKey": "your_search_key",
+  "baseUrl": "https://api.tavily.com",
+  "maxResults": 5,
+  "timeoutMs": 8000
+}

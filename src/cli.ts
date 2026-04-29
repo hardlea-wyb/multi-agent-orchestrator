@@ -19,6 +19,11 @@ type CliOverrides = {
   maxResults?: number;
   maxFileSizeKb?: number;
   httpTimeoutMs?: number;
+  pipeline?: string;
+  searchProvider?: string;
+  searchMaxResults?: number;
+  searchTimeoutMs?: number;
+  searchConfigPath?: string;
 };
 
 const parseArgs = (argv: string[]): ParsedArgs => {
@@ -82,6 +87,11 @@ const buildOverrides = (options: Record<string, string>): CliOverrides => ({
   maxResults: parseNumber(options['max-results']),
   maxFileSizeKb: parseNumber(options['max-file-size-kb']),
   httpTimeoutMs: parseNumber(options['http-timeout-ms']),
+  pipeline: options.pipeline,
+  searchProvider: options['search-provider'],
+  searchMaxResults: parseNumber(options['search-max-results']),
+  searchTimeoutMs: parseNumber(options['search-timeout-ms']),
+  searchConfigPath: options['search-config'],
 });
 
 const hasOverrides = (overrides: CliOverrides) =>
@@ -123,6 +133,21 @@ const buildTaskFromOverrides = (overrides: CliOverrides): TaskInput => {
   if (overrides.httpTimeoutMs !== undefined) {
     payload.timeoutMs = overrides.httpTimeoutMs;
   }
+  if (overrides.pipeline) {
+    payload.pipeline = overrides.pipeline;
+  }
+  if (overrides.searchProvider) {
+    payload.searchProvider = overrides.searchProvider;
+  }
+  if (overrides.searchMaxResults !== undefined) {
+    payload.searchMaxResults = overrides.searchMaxResults;
+  }
+  if (overrides.searchTimeoutMs !== undefined) {
+    payload.searchTimeoutMs = overrides.searchTimeoutMs;
+  }
+  if (overrides.searchConfigPath) {
+    payload.searchConfigPath = overrides.searchConfigPath;
+  }
 
   return {
     id: 'task-adhoc',
@@ -132,6 +157,93 @@ const buildTaskFromOverrides = (overrides: CliOverrides): TaskInput => {
     payload,
   };
 };
+
+const buildSearchOverrides = (queryText: string, base: CliOverrides): CliOverrides => {
+  const trimmed = queryText.trim();
+  return {
+    ...base,
+    summary: base.summary ?? `Search ${trimmed}`,
+    topic: base.topic ?? trimmed,
+    query: base.query ?? trimmed,
+    prompt:
+      base.prompt ??
+      `请基于检索结果总结“${trimmed}”的核心观点、应用场景与关键参考。`,
+  };
+};
+
+const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[] => {
+  const pipeline = overrides.pipeline ?? 'triad';
+  const safeTopic = topic.trim();
+  const root = overrides.root ?? '.';
+  const url = overrides.url;
+  const extensions = overrides.extensions ?? ['.md', '.txt', '.ts'];
+  const sharedPayload: Record<string, unknown> = {
+    topic: overrides.topic ?? safeTopic,
+    priority: overrides.priority ?? 'high',
+    root,
+    query: overrides.query ?? safeTopic,
+    extensions,
+  };
+
+  if (overrides.searchProvider) {
+    sharedPayload.searchProvider = overrides.searchProvider;
+  }
+  if (overrides.searchMaxResults !== undefined) {
+    sharedPayload.searchMaxResults = overrides.searchMaxResults;
+  }
+  if (overrides.searchTimeoutMs !== undefined) {
+    sharedPayload.searchTimeoutMs = overrides.searchTimeoutMs;
+  }
+  if (overrides.searchConfigPath) {
+    sharedPayload.searchConfigPath = overrides.searchConfigPath;
+  }
+
+  const pipelineTools: Record<string, string[]> = {
+    triad: ['checklist', 'summarize', 'web_search', 'http_get', 'file_search'],
+    quick: ['summarize', 'web_search', 'file_search'],
+    deep: ['checklist', 'web_search', 'http_get', 'file_search', 'llm_generate'],
+  };
+
+  const toolIds = pipelineTools[pipeline] ?? pipelineTools.triad;
+
+  return [
+    {
+      id: 'task-intake',
+      summary: `Clarify request for ${safeTopic}`,
+      payload: {
+        ...sharedPayload,
+        toolIds: ['checklist', 'summarize'],
+        prompt: overrides.prompt ?? `请梳理“${safeTopic}”的关键问题与信息需求。`,
+      },
+    },
+    {
+      id: 'task-run',
+      summary: `Collect sources for ${safeTopic}`,
+      payload: {
+        ...sharedPayload,
+        toolIds,
+        url,
+        prompt:
+          overrides.prompt ??
+          `请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`,
+      },
+    },
+    {
+      id: 'task-wrap',
+      summary: `Summarize outcome for ${safeTopic}`,
+      payload: {
+        ...sharedPayload,
+        toolIds: ['llm_generate', 'summarize'],
+        prompt: overrides.prompt ?? `请给出“${safeTopic}”的要点总结与下一步建议。`,
+      },
+    },
+  ];
+};
+
+const isSearchCommand = (value?: string) =>
+  value === 'search' || value === 'ask' || value === 'query';
+
+const isFlowCommand = (value?: string) => value === 'flow' || value === 'pipeline';
 
 const defaultTasks: TaskInput[] = [
   {
@@ -167,6 +279,13 @@ const printHelp = () => {
   // eslint-disable-next-line no-console
   console.log(`Usage:
   npm run dev -- [configPath] [options]
+  npm run dev -- search <query> [options]
+  npm run dev -- flow <topic> [options]
+
+Shortcuts:
+  npm run mao -- search <query> [options]
+  npm run search -- <query> [options]
+  npm run flow -- <topic> [options]
 
 Options:
   --config <path>
@@ -182,9 +301,16 @@ Options:
   --max-results <number>
   --max-file-size-kb <number>
   --http-timeout-ms <number>
+  --pipeline <triad|quick|deep>
+  --search-provider <tavily|serpapi>
+  --search-max-results <number>
+  --search-timeout-ms <number>
+  --search-config <path>
   --help
 
 Example:
+  npm run dev -- search "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --extensions ".md,.txt"
+  npm run dev -- flow "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
   npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --query "vision transformer" --extensions ".md,.txt" --prompt "请总结核心思想"
 `);
 };
@@ -195,10 +321,36 @@ if (parsed.options.help === 'true' || parsed.options.h === 'true') {
   process.exit(0);
 }
 
-const configPath =
-  parsed.options.config ?? parsed.positionals[0] ?? 'examples/agent-config.yaml';
 const overrides = buildOverrides(parsed.options);
-const tasks = hasOverrides(overrides) ? [buildTaskFromOverrides(overrides)] : defaultTasks;
+const firstPositional = parsed.positionals[0];
+const isCommand = isSearchCommand(firstPositional) || isFlowCommand(firstPositional);
+const configPath =
+  parsed.options.config ?? (isCommand ? 'examples/agent-config.yaml' : firstPositional) ??
+  'examples/agent-config.yaml';
+
+const tasks = (() => {
+  if (isCommand) {
+    const commandArg = parsed.positionals.slice(1).join(' ').trim();
+    if (!commandArg) {
+      printHelp();
+      process.exit(1);
+    }
+    if (isSearchCommand(firstPositional)) {
+      const merged = buildSearchOverrides(commandArg, overrides);
+      return [buildTaskFromOverrides(merged)];
+    }
+    if (isFlowCommand(firstPositional)) {
+      return buildPipelineTasks(commandArg, overrides);
+    }
+    return [buildTaskFromOverrides(overrides)];
+  }
+
+  if (hasOverrides(overrides)) {
+    return [buildTaskFromOverrides(overrides)];
+  }
+
+  return defaultTasks;
+})();
 
 runOrchestrator(configPath, tasks)
   .then(({ results }) => {

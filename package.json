@@ -11,7 +11,10 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "search": "tsx src/cli.ts search",
+    "flow": "tsx src/cli.ts flow",
+    "mao": "tsx src/cli.ts"
   },
   "keywords": [],
   "author": "",
