@@ -27,6 +27,27 @@ npm run dev
 示例任务包含 `payload.url` 用于演示 HTTP 工具。
 文件检索工具读取 `payload.root`、`payload.query` 及可选过滤条件。
 
+## 命令行直用
+无需修改 `src/cli.ts`，直接通过命令行传参生成任务：
+
+```bash
+npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --query "vision transformer" --extensions ".md,.txt" --prompt "请总结核心思想"
+```
+
+常用参数：
+- `--config` 配置文件路径
+- `--summary` 任务标题
+- `--topic` 主题
+- `--url` HTTP 工具抓取地址
+- `--root` 本地检索根目录
+- `--query` 检索关键字
+- `--extensions` 扩展名列表（逗号分隔）
+- `--filename-includes` 仅匹配文件名包含
+- `--prompt` 提示词
+- `--max-results` 最大匹配数
+- `--max-file-size-kb` 文件大小限制
+- `--http-timeout-ms` HTTP 超时
+
 ## 接入真实 LLM（本地配置文件）
 优先读取 `.llmrc.json`，其次读取 `config/llm.local.json`，最后兜底环境变量。
 
