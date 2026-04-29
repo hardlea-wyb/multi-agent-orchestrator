@@ -1,5 +1,6 @@
 import { runOrchestrator } from './orchestrator.js';
 import { TaskInput } from './core/types.js';
+import { llmGenerate } from './tools/llm-tool.js';
 
 type ParsedArgs = {
   options: Record<string, string>;
@@ -177,6 +178,7 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
   const root = overrides.root ?? '.';
   const url = overrides.url;
   const extensions = overrides.extensions ?? ['.md', '.txt', '.ts'];
+  const userPrompt = overrides.prompt?.trim();
   const sharedPayload: Record<string, unknown> = {
     topic: overrides.topic ?? safeTopic,
     priority: overrides.priority ?? 'high',
@@ -213,7 +215,9 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
       payload: {
         ...sharedPayload,
         toolIds: ['checklist', 'summarize'],
-        prompt: overrides.prompt ?? `请梳理“${safeTopic}”的关键问题与信息需求。`,
+        prompt: userPrompt
+          ? `用户需求：${userPrompt}\n请梳理“${safeTopic}”的关键问题与信息需求。`
+          : `请梳理“${safeTopic}”的关键问题与信息需求。`,
       },
     },
     {
@@ -223,9 +227,9 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
         ...sharedPayload,
         toolIds,
         url,
-        prompt:
-          overrides.prompt ??
-          `请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`,
+        prompt: userPrompt
+          ? `用户需求：${userPrompt}\n请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`
+          : `请基于检索结果总结“${safeTopic}”的核心观点、应用场景与关键参考。`,
       },
     },
     {
@@ -234,7 +238,9 @@ const buildPipelineTasks = (topic: string, overrides: CliOverrides): TaskInput[]
       payload: {
         ...sharedPayload,
         toolIds: ['llm_generate', 'summarize'],
-        prompt: overrides.prompt ?? `请给出“${safeTopic}”的要点总结与下一步建议。`,
+        prompt: userPrompt
+          ? `用户需求：${userPrompt}\n请给出“${safeTopic}”的最终答复与建议。`
+          : `请给出“${safeTopic}”的要点总结与下一步建议。`,
       },
     },
   ];
@@ -244,6 +250,8 @@ const isSearchCommand = (value?: string) =>
   value === 'search' || value === 'ask' || value === 'query';
 
 const isFlowCommand = (value?: string) => value === 'flow' || value === 'pipeline';
+
+const isChatCommand = (value?: string) => value === 'chat' || value === 'talk' || value === 'say';
 
 const defaultTasks: TaskInput[] = [
   {
@@ -281,11 +289,13 @@ const printHelp = () => {
   npm run dev -- [configPath] [options]
   npm run dev -- search <query> [options]
   npm run dev -- flow <topic> [options]
+  npm run dev -- chat <message> [options]
 
 Shortcuts:
   npm run mao -- search <query> [options]
   npm run search -- <query> [options]
   npm run flow -- <topic> [options]
+  npm run chat -- <message> [options]
 
 Options:
   --config <path>
@@ -311,24 +321,61 @@ Options:
 Example:
   npm run dev -- search "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --extensions ".md,.txt"
   npm run dev -- flow "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
+  npm run dev -- chat "我想搜索相关DIT的内容"
   npm run dev -- --summary "Vision Transformer" --topic "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --query "vision transformer" --extensions ".md,.txt" --prompt "请总结核心思想"
 `);
 };
 
-const parsed = parseArgs(process.argv.slice(2));
-if (parsed.options.help === 'true' || parsed.options.h === 'true') {
-  printHelp();
-  process.exit(0);
-}
+const extractQueryFromMessage = async (message: string) => {
+  const prompt = [
+    'You are a query extractor.',
+    'Given a user request in Chinese, return a short search query only.',
+    'If the request already contains a topic, use it as the query.',
+    'Return JSON only in the format: {"query":"...","topic":"..."}',
+    `User request: ${message}`,
+  ].join('\n');
 
-const overrides = buildOverrides(parsed.options);
-const firstPositional = parsed.positionals[0];
-const isCommand = isSearchCommand(firstPositional) || isFlowCommand(firstPositional);
-const configPath =
-  parsed.options.config ?? (isCommand ? 'examples/agent-config.yaml' : firstPositional) ??
-  'examples/agent-config.yaml';
+  try {
+    const response = await llmGenerate(prompt);
+    const start = response.indexOf('{');
+    const end = response.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+      return null;
+    }
+    const parsed = JSON.parse(response.slice(start, end + 1)) as {
+      query?: string;
+      topic?: string;
+    };
+    const query = parsed.query?.trim();
+    const topic = parsed.topic?.trim();
+    if (!query && !topic) {
+      return null;
+    }
+    return { query: query ?? topic ?? message, topic: topic ?? query ?? message };
+  } catch {
+    return null;
+  }
+};
 
-const tasks = (() => {
+const main = async () => {
+  const parsed = parseArgs(process.argv.slice(2));
+  if (parsed.options.help === 'true' || parsed.options.h === 'true') {
+    printHelp();
+    process.exit(0);
+  }
+
+  const overrides = buildOverrides(parsed.options);
+  const firstPositional = parsed.positionals[0];
+  const isCommand =
+    isSearchCommand(firstPositional) ||
+    isFlowCommand(firstPositional) ||
+    isChatCommand(firstPositional);
+  const configPath =
+    parsed.options.config ?? (isCommand ? 'examples/agent-config.yaml' : firstPositional) ??
+    'examples/agent-config.yaml';
+
+  let tasks: TaskInput[] = [];
+
   if (isCommand) {
     const commandArg = parsed.positionals.slice(1).join(' ').trim();
     if (!commandArg) {
@@ -337,30 +384,38 @@ const tasks = (() => {
     }
     if (isSearchCommand(firstPositional)) {
       const merged = buildSearchOverrides(commandArg, overrides);
-      return [buildTaskFromOverrides(merged)];
+      tasks = [buildTaskFromOverrides(merged)];
+    } else if (isFlowCommand(firstPositional)) {
+      tasks = buildPipelineTasks(commandArg, overrides);
+    } else if (isChatCommand(firstPositional)) {
+      const extracted = await extractQueryFromMessage(commandArg);
+      const topic = extracted?.topic ?? commandArg;
+      const chatOverrides: CliOverrides = {
+        ...overrides,
+        topic: overrides.topic ?? topic,
+        query: overrides.query ?? extracted?.query ?? topic,
+        prompt: overrides.prompt ?? commandArg,
+        pipeline: overrides.pipeline ?? 'deep',
+      };
+      tasks = buildPipelineTasks(topic, chatOverrides);
+    } else {
+      tasks = [buildTaskFromOverrides(overrides)];
     }
-    if (isFlowCommand(firstPositional)) {
-      return buildPipelineTasks(commandArg, overrides);
-    }
-    return [buildTaskFromOverrides(overrides)];
+  } else if (hasOverrides(overrides)) {
+    tasks = [buildTaskFromOverrides(overrides)];
+  } else {
+    tasks = defaultTasks;
   }
 
-  if (hasOverrides(overrides)) {
-    return [buildTaskFromOverrides(overrides)];
-  }
-
-  return defaultTasks;
-})();
-
-runOrchestrator(configPath, tasks)
-  .then(({ results }) => {
-    for (const result of results) {
-      // eslint-disable-next-line no-console
-      console.log(`\n[${result.agentId}] ${result.output}`);
-    }
-  })
-  .catch((error) => {
+  const { results } = await runOrchestrator(configPath, tasks);
+  for (const result of results) {
     // eslint-disable-next-line no-console
-    console.error('Execution failed:', error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
+    console.log(`\n[${result.agentId}] ${result.output}`);
+  }
+};
+
+main().catch((error) => {
+  // eslint-disable-next-line no-console
+  console.error('Execution failed:', error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

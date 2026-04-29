@@ -44,6 +44,11 @@ npm run search -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" 
 npm run flow -- "Vision Transformer" --url "https://arxiv.org/abs/2010.11929" --root "D:\\papers" --pipeline deep
 ```
 
+自然语言对话模式（自动抽取主题并触发 web_search）：
+```bash
+npm run chat -- "我想搜索相关DIT的内容"
+```
+
 ## 网页搜索（自动找链接）
 新增 `web_search` 工具，可自动找到网页链接并用于后续总结。
 

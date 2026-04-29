@@ -14,6 +14,7 @@
     "test": "echo \"No tests yet\"",
     "search": "tsx src/cli.ts search",
     "flow": "tsx src/cli.ts flow",
+    "chat": "tsx src/cli.ts chat",
     "mao": "tsx src/cli.ts"
   },
   "keywords": [],
